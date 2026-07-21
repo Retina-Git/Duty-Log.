@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Duty Log</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#1E2A32">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Duty Log">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #F3F5F3;
+    --card: #FFFFFF;
+    --ink: #1E2A32;
+    --ink-soft: #55666B;
+    --line: #C7D1CD;
+    --teal: #3E7C74;
+    --teal-soft: #E4EEEC;
+    --ot: #C0722C;
+    --ot-soft: #FBEBDB;
+    --danger: #B84C4C;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  body{padding-bottom:76px;min-height:100vh;}
+  h1,h2,h3{font-family:'Roboto Slab',serif;margin:0;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+
+  header{
+    padding:22px 18px 16px;
+    background:var(--ink);
+    color:#fff;
+    position:relative;
+    overflow:hidden;
+  }
+  header h1{font-size:22px;letter-spacing:0.2px;}
+  header p{margin:4px 0 0;font-size:12.5px;color:#B9C6C3;font-family:'Inter',sans-serif;}
+  .pulse-line{width:100%;height:18px;margin-top:14px;opacity:0.85;}
+
+  main{padding:16px;max-width:560px;margin:0 auto;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:16px;
+    margin-bottom:14px;
+  }
+  .card h2{font-size:15px;margin-bottom:12px;color:var(--ink);}
+  .field{margin-bottom:12px;}
+  label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.4px;}
+  input, select, textarea{
+    width:100%;
+    padding:10px 11px;
+    border:1px solid var(--line);
+    border-radius:7px;
+    font-size:15px;
+    font-family:'Inter',sans-serif;
+    background:#FCFDFC;
+    color:var(--ink);
+  }
+  input.mono, .timegrid input{font-family:'JetBrains Mono',monospace;}
+  input:focus, select:focus, textarea:focus{outline:2px solid var(--teal);outline-offset:1px;}
+  textarea{resize:vertical;min-height:54px;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+
+  .preview{
+    display:flex;
+    gap:10px;
+    margin-top:4px;
+  }
+  .pill{
+    flex:1;
+    text-align:center;
+    padding:10px 6px;
+    border-radius:8px;
+    font-family:'JetBrains Mono',monospace;
+  }
+  .pill .num{font-size:19px;font-weight:700;display:block;}
+  .pill .lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:0.4px;color:var(--ink-soft);}
+  .pill.reg{background:var(--teal-soft);}
+  .pill.reg .num{color:var(--teal);}
+  .pill.ot{background:var(--ot-soft);}
+  .pill.ot .num{color:var(--ot);}
+
+  button{
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:14.5px;
+    border:none;
+    border-radius:8px;
+    padding:12px 16px;
+    cursor:pointer;
+  }
+  .btn-primary{background:var(--teal);color:#fff;width:100%;}
+  .btn-primary:active{background:#33685f;}
+  .btn-ghost{background:transparent;color:var(--ink-soft);border:1px solid var(--line);}
+  .btn-danger-ghost{background:transparent;color:var(--danger);border:1px solid #E2C6C6;}
+  .btn-small{padding:7px 10px;font-size:13px;}
+
+  .entry{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:11px 0;
+    border-bottom:1px solid var(--line);
+    gap:10px;
+  }
+  .entry:last-child{border-bottom:none;}
+  .entry-date{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ink-soft);min-width:44px;}
+  .entry-main{flex:1;}
+  .entry-type{font-weight:600;font-size:14px;}
+  .entry-sub{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+  .entry-hours{text-align:right;font-family:'JetBrains Mono',monospace;font-size:13px;}
+  .entry-hours .ot-val{color:var(--ot);}
+  .entry-actions{display:flex;gap:6px;}
+  .icon-btn{
+    background:none;border:none;color:var(--ink-soft);font-size:15px;cursor:pointer;padding:4px 6px;
+  }
+
+  .month-header{
+    font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;
+    color:var(--ink-soft);margin:18px 0 4px;padding-bottom:6px;border-bottom:2px solid var(--line);
+  }
+  .month-header:first-child{margin-top:0;}
+
+  .empty{
+    text-align:center;padding:30px 10px;color:var(--ink-soft);
+  }
+  .empty .big{font-size:32px;display:block;margin-bottom:8px;}
+
+  nav.tabs{
+    position:fixed;bottom:0;left:0;right:0;
+    background:#fff;border-top:1px solid var(--line);
+    display:flex;
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+    z-index:10;
+  }
+  nav.tabs button{
+    flex:1;background:none;border:none;color:var(--ink-soft);
+    display:flex;flex-direction:column;align-items:center;gap:2px;
+    font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;
+    padding:6px 2px;border-radius:8px;
+  }
+  nav.tabs button .ic{font-size:18px;}
+  nav.tabs button.active{color:var(--teal);background:var(--teal-soft);}
+
+  .summary-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 8px;text-align:center;}
+  .stat .num{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;}
+  .stat .lbl{font-size:10.5px;color:var(--ink-soft);text-transform:uppercase;margin-top:3px;letter-spacing:0.3px;}
+
+  table.report{width:100%;border-collapse:collapse;font-size:13px;}
+  table.report th, table.report td{padding:8px 6px;text-align:left;border-bottom:1px solid var(--line);}
+  table.report th{font-size:10.5px;text-transform:uppercase;color:var(--ink-soft);letter-spacing:0.3px;}
+  table.report td.num, table.report th.num{text-align:right;font-family:'JetBrains Mono',monospace;}
+
+  .taglist{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+  .tag{
+    background:var(--teal-soft);color:var(--teal);border-radius:20px;padding:6px 10px 6px 12px;
+    font-size:13px;display:flex;align-items:center;gap:6px;
+  }
+  .tag button{background:none;border:none;color:var(--teal);font-weight:700;cursor:pointer;padding:0;font-size:14px;}
+  .settings-item{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);}
+  .settings-item:last-child{border-bottom:none;}
+  .profile-view-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px;}
+  .profile-view-row:last-child{border-bottom:none;}
+  .profile-view-row .lbl{color:var(--ink-soft);font-size:12.5px;}
+  .profile-view-row .val{font-weight:600;text-align:right;}
+
+  .toast{
+    position:fixed;bottom:86px;left:50%;transform:translateX(-50%);
+    background:var(--ink);color:#fff;padding:9px 16px;border-radius:20px;font-size:13px;
+    opacity:0;transition:opacity .25s ease;pointer-events:none;z-index:20;
+  }
+  .toast.show{opacity:1;}
+
+  @media print{
+    header, nav.tabs, #view-log, #view-history, #view-settings, .no-print{display:none !important;}
+    body{padding-bottom:0;background:#fff;}
+    #view-summary{display:block !important;}
+    .card{border:none;padding:0;margin-bottom:20px;}
+    .summary-grid{margin-bottom:20px;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Duty Log</h1>
+  <p>Shift entries &amp; monthly OT report</p>
+  <svg class="pulse-line" viewBox="0 0 400 20" preserveAspectRatio="none">
+    <polyline points="0,10 60,10 75,2 90,18 105,10 160,10 175,4 190,16 205,10 400,10"
+      fill="none" stroke="#5F8B84" stroke-width="1.6"/>
+  </svg>
+</header>
+
+<main>
+
+  <!-- LOG TAB -->
+  <div class="view active" id="view-log">
+    <div class="card">
+      <h2 id="form-title">Log a shift</h2>
+      <div class="field">
+        <label>Date</label>
+        <input type="date" id="f-date">
+      </div>
+      <div class="field">
+        <label>Day type</label>
+        <select id="f-daytype">
+          <option value="normal">Normal working day</option>
+          <option value="dayoff">Day off (worked)</option>
+          <option value="dayoff-none">Day off (no duty)</option>
+          <option value="holiday">Public holiday (worked)</option>
+          <option value="holiday-none">Public holiday (no duty)</option>
+          <option value="leave">Casual leave (no duty)</option>
+          <option value="duty-leave">Duty leave (no duty)</option>
+        </select>
+      </div>
+
+      <div id="duty-fields">
+        <div class="field">
+          <label>Shift type</label>
+          <select id="f-type"></select>
+        </div>
+        <div class="field timegrid">
+          <label>Time (auto-filled from shift type, editable)</label>
+          <div class="row2">
+            <input type="time" id="f-start" class="mono">
+            <input type="time" id="f-end" class="mono">
+          </div>
+        </div>
+        <div class="field">
+          <label>Ward / Unit</label>
+          <input list="ward-list" id="f-ward" placeholder="e.g. ICU">
+          <datalist id="ward-list"></datalist>
+        </div>
+        <div class="field">
+          <label>Officer receiving duty (for OT entries)</label>
+          <input list="officer-list" id="f-officer" placeholder="Name, or select a reason below">
+          <datalist id="officer-list"></datalist>
+        </div>
+
+        <div class="preview">
+          <div class="pill reg"><span class="num mono" id="prev-reg">0.0 hrs</span><span class="lbl">Regular hrs</span></div>
+          <div class="pill ot"><span class="num mono" id="prev-ot">0.0 hrs</span><span class="lbl">OT hrs</span></div>
+        </div>
+        <div class="field" style="margin-top:10px;">
+          <label>Adjust OT hours (auto-calculated, edit if needed)</label>
+          <input type="number" step="0.1" id="f-ot-override" class="mono">
+        </div>
+      </div>
+
+      <div id="leave-fields" style="display:none;">
+        <div class="field">
+          <label>Hours credited (added to regular hours)</label>
+          <select id="f-leave-hours">
+            <option value="6">6 hours</option>
+            <option value="8">8 hours</option>
+          </select>
+        </div>
+        <div style="font-size:13px;color:var(--ink-soft);background:var(--teal-soft);border-radius:8px;padding:10px 12px;margin-bottom:12px;">
+          No shift times needed — this credits the selected hours straight to your regular hours for the day.
+        </div>
+      </div>
+
+      <div id="noduty-note" style="display:none;font-size:13px;color:var(--ink-soft);background:var(--teal-soft);border-radius:8px;padding:10px 12px;margin-bottom:12px;">
+        No shift details needed — this just records the day with no hours added. It'll still show as a row on the OT sheet, marked accordingly.
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:6px;">
+        <button class="btn-primary" id="btn-save" style="flex:1;">Save shift</button>
+        <button class="btn-ghost" id="btn-cancel-edit" style="display:none;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY TAB -->
+  <div class="view" id="view-history">
+    <div class="card" id="history-card">
+      <h2>All shifts</h2>
+      <div id="history-list"></div>
+    </div>
+  </div>
+
+  <!-- SUMMARY TAB -->
+  <div class="view" id="view-summary">
+    <div class="card no-print">
+      <h2>Claim period</h2>
+      <div class="field">
+        <label>Claim period starts on (auto-set to that week's Sunday)</label>
+        <input type="date" id="f-period-start">
+      </div>
+      <div class="field">
+        <label>Claim period length</label>
+        <select id="f-period-weeks">
+          <option value="4" selected>4 weeks</option>
+          <option value="5">5 weeks</option>
+        </select>
+      </div>
+      <button class="btn-primary" id="btn-print">Download official OT sheet</button>
+    </div>
+
+    <div id="summary-content">
+      <div id="report-header" style="margin-bottom:4px;font-size:13px;color:var(--ink-soft);"></div>
+      <h2 id="summary-month-title" style="margin-bottom:12px;"></h2>
+      <div class="summary-grid">
+        <div class="stat"><div class="num mono" id="sum-days">0</div><div class="lbl">Shifts</div></div>
+        <div class="stat"><div class="num mono" id="sum-reg">0.0 hrs</div><div class="lbl">Regular hrs</div></div>
+        <div class="stat"><div class="num mono" id="sum-ot">0.0 hrs</div><div class="lbl">OT hrs</div></div>
+      </div>
+      <div class="summary-grid" style="grid-template-columns:1fr;">
+        <div class="stat" style="background:var(--ot-soft);border-color:#EAC79A;">
+          <div class="num mono" id="sum-amount" style="color:var(--ot);font-size:24px;">Rs. 0.00</div>
+          <div class="lbl" id="sum-rate-label">OT claim amount</div>
+        </div>
+      </div>
+      <div class="card" id="summary-table-card">
+        <table class="report">
+          <thead>
+            <tr><th>Date</th><th>Type</th><th>Ward</th><th class="num">Reg</th><th class="num">OT</th></tr>
+          </thead>
+          <tbody id="summary-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS TAB -->
+  <div class="view" id="view-settings">
+    <div class="card">
+      <h2>Your details (for report)</h2>
+
+      <div id="profile-view"></div>
+
+      <div id="profile-edit-fields">
+        <div class="field">
+          <label>Name</label>
+          <input id="profile-name" placeholder="Your full name">
+        </div>
+        <div class="field">
+          <label>Salary Number</label>
+          <input id="profile-id" type="number" inputmode="numeric" placeholder="e.g. 45210">
+        </div>
+        <div class="field">
+          <label>Grade</label>
+          <select id="profile-grade">
+            <option value="Staff Nurse Grade I">Staff Nurse Grade I</option>
+            <option value="Staff Nurse Grade II">Staff Nurse Grade II</option>
+            <option value="Staff Nurse Grade III">Staff Nurse Grade III</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Working unit</label>
+          <input id="profile-unit" placeholder="e.g. Cath Lab">
+        </div>
+        <div class="field">
+          <label>Monthly salary (Rs.)</label>
+          <input id="profile-salary" type="number" step="0.01" placeholder="e.g. 85000">
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label>Leave-details note (item 10 on the form)</label>
+          <input id="profile-leave-note" placeholder="e.g. Please turn over">
+        </div>
+        <button class="btn-primary" id="btn-save-profile" style="margin-top:10px;">Save details</button>
+      </div>
+
+      <button class="btn-ghost btn-small" id="btn-edit-profile" style="display:none;margin-top:6px;">Edit details</button>
+    </div>
+        
+    <div class="card">
+      <h2>OT pay rates (by grade)</h2>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 10px;">Add the different overtime rates that apply. Mark the one that's yours — it'll be used to calculate your claim amount.</p>
+      <div id="rate-list"></div>
+      <div class="row3" style="margin-top:10px;">
+        <input id="new-rate-label" placeholder="Grade / label">
+        <input id="new-rate-value" type="number" step="0.01" placeholder="Rs / hr" class="mono">
+        <button class="btn-ghost btn-small" id="btn-add-rate">Add</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Shift types &amp; standard hours</h2>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 10px;">Each type has a default start/end time — selecting it on the Log tab auto-fills the time (still editable).</p>
+      <div id="type-list"></div>
+      <div class="field" style="margin-top:10px;">
+        <label>Name</label>
+        <input id="new-type-name" placeholder="e.g. Morning">
+      </div>
+      <div class="row3">
+        <input id="new-type-start" type="time" class="mono">
+        <input id="new-type-end" type="time" class="mono">
+        <input id="new-type-hours" type="number" placeholder="Std hrs" class="mono">
+      </div>
+      <button class="btn-ghost btn-small" id="btn-add-type" style="margin-top:8px;">Add shift type</button>
+    </div>
+    <div class="card">
+      <h2>Wards / units</h2>
+      <div class="taglist" id="ward-tags"></div>
+      <div class="row2">
+        <input id="new-ward" placeholder="Ward name">
+        <button class="btn-ghost btn-small" id="btn-add-ward">Add</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Officer / duty reason templates</h2>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 10px;">Quick options for the "Officer receiving duty" field, e.g. reasons for extra service.</p>
+      <div class="taglist" id="officer-tags"></div>
+      <div class="row2">
+        <input id="new-officer-tpl" placeholder="e.g. Short of staff">
+        <button class="btn-ghost btn-small" id="btn-add-officer-tpl">Add</button>
+      </div>
+    </div>
+    <div class="card no-print">
+      <h2>Data</h2>
+      <p style="font-size:13px;color:var(--ink-soft);margin:0 0 10px;">Your entries are saved privately to your account and stay on this device/app only.</p>
+      <button class="btn-danger-ghost" id="btn-reset" style="width:100%;">Clear all data</button>
+    </div>
+  </div>
+
+</main>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-view="log"><span class="ic">＋</span>Log</button>
+  <button class="tab-btn" data-view="history"><span class="ic">☰</span>History</button>
+  <button class="tab-btn" data-view="summary"><span class="ic">▦</span>Summary</button>
+  <button class="tab-btn" data-view="settings"><span class="ic">⚙</span>Settings</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// If running outside Claude's artifact environment (e.g. as a standalone PWA / installed app),
+// window.storage won't exist. This polyfill makes it work identically using the phone's own
+// localStorage, so all shift data is saved permanently on-device.
+if (!window.storage) {
+  const PREFIX = 'dutylog_';
+  window.storage = {
+    async get(key, shared){
+      try {
+        const val = localStorage.getItem(PREFIX + key);
+        if (val === null) throw new Error('Key not found');
+        return { key, value: val, shared: !!shared };
+      } catch(e){ throw e; }
+    },
+    async set(key, value, shared){
+      try {
+        localStorage.setItem(PREFIX + key, value);
+        return { key, value, shared: !!shared };
+      } catch(e){ throw e; }
+    },
+    async delete(key, shared){
+      try {
+        localStorage.removeItem(PREFIX + key);
+        return { key, deleted: true, shared: !!shared };
+      } catch(e){ throw e; }
+    },
+    async list(prefix, shared){
+      try {
+        const keys = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith(PREFIX)) {
+            const stripped = k.slice(PREFIX.length);
+            if (!prefix || stripped.startsWith(prefix)) keys.push(stripped);
+          }
+        }
+        return { keys, prefix, shared: !!shared };
+      } catch(e){ throw e; }
+    }
+  };
+}
+
+let shiftTypes = [];
+let wards = [];
+let officerTemplates = [];
+let shifts = [];
+let profile = { name: '', id: '', grade: '', unit: 'Cath Lab', salary: '', leaveNote: 'Please turn over' };
+let otRates = [];
+let editingId = null;
+
+const DEFAULT_RATES = [
+  { label: 'My rate', rate: 283, active: true }
+];
+
+const DEFAULT_TYPES = [
+  {name:"Morning (6h)", hours:6, start:"07:00", end:"13:00"},
+  {name:"Evening (6h)", hours:6, start:"13:00", end:"19:00"},
+  {name:"Night (12h)", hours:12, start:"19:00", end:"07:00"},
+  {name:"Day - Special Unit (9h)", hours:9, start:"07:00", end:"16:00"}
+];
+const DEFAULT_WARDS = ["Cath Lab","General Ward","ICU","Emergency","Pediatrics"];
+const DEFAULT_OFFICER_TEMPLATES = ["Short of staff","Unit is heavy","Heavy List"];
+
+function uid(){ return 's_' + Date.now() + '_' + Math.random().toString(36).slice(2,8); }
+
+// Local-date helpers — never use toISOString() for dates, since that converts to UTC
+// and silently shifts the date backward for timezones ahead of UTC (like Sri Lanka, UTC+5:30).
+function todayLocalISO(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function dateToLocalISO(d){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1700);
+}
+
+async function loadAll(){
+  try{
+    const r = await window.storage.get('shift-types', false);
+    shiftTypes = r ? JSON.parse(r.value) : DEFAULT_TYPES.slice();
+  }catch(e){ shiftTypes = DEFAULT_TYPES.slice(); }
+
+  try{
+    const r = await window.storage.get('wards', false);
+    wards = r ? JSON.parse(r.value) : DEFAULT_WARDS.slice();
+  }catch(e){ wards = DEFAULT_WARDS.slice(); }
+
+  try{
+    const r = await window.storage.get('officer-templates', false);
+    officerTemplates = r ? JSON.parse(r.value) : DEFAULT_OFFICER_TEMPLATES.slice();
+  }catch(e){ officerTemplates = DEFAULT_OFFICER_TEMPLATES.slice(); }
+
+  try{
+    const r = await window.storage.get('shifts-data', false);
+    shifts = r ? JSON.parse(r.value) : [];
+  }catch(e){ shifts = []; }
+
+  try{
+    const r = await window.storage.get('profile', false);
+    profile = r ? JSON.parse(r.value) : { name:'', id:'', grade:'', unit:'Cath Lab', salary:'', leaveNote:'Please turn over' };
+  }catch(e){ profile = { name:'', id:'', grade:'', unit:'Cath Lab', salary:'', leaveNote:'Please turn over' }; }
+  document.getElementById('profile-name').value = profile.name || '';
+  document.getElementById('profile-id').value = profile.id || '';
+  document.getElementById('profile-grade').value = profile.grade || 'Staff Nurse Grade I';
+  document.getElementById('profile-unit').value = profile.unit || 'Cath Lab';
+  document.getElementById('profile-salary').value = profile.salary || '';
+  document.getElementById('profile-leave-note').value = profile.leaveNote || 'Please turn over';
+  renderProfileMode();
+
+  try{
+    const r = await window.storage.get('ot-rates', false);
+    otRates = r ? JSON.parse(r.value) : DEFAULT_RATES.slice();
+  }catch(e){ otRates = DEFAULT_RATES.slice(); }
+  if(!otRates.some(r=>r.active) && otRates.length) otRates[0].active = true;
+
+  renderTypeOptions();
+  autofillTypeTimes();
+  renderWardOptions();
+  renderTypeSettings();
+  renderWardTags();
+  renderOfficerOptions();
+  renderOfficerTags();
+  renderRates();
+  renderHistory();
+  renderSummary();
+}
+
+async function safeSet(key, value){
+  for(let attempt=0; attempt<2; attempt++){
+    try{
+      const res = await window.storage.set(key, value, false);
+      if(res) return true;
+    }catch(err){
+      console.error(`Storage set failed (attempt ${attempt+1}) for "${key}":`, err);
+      if(attempt===1){
+        toast('Could not save — check connection and try again');
+        return false;
+      }
+      await new Promise(r=>setTimeout(r, 400));
+    }
+  }
+  return false;
+}
+
+async function saveTypes(){ return safeSet('shift-types', JSON.stringify(shiftTypes)); }
+async function saveWards(){ return safeSet('wards', JSON.stringify(wards)); }
+async function saveOfficerTemplates(){ return safeSet('officer-templates', JSON.stringify(officerTemplates)); }
+async function saveShifts(){ return safeSet('shifts-data', JSON.stringify(shifts)); }
+async function saveProfile(){ return safeSet('profile', JSON.stringify(profile)); }
+async function saveRates(){ return safeSet('ot-rates', JSON.stringify(otRates)); }
+
+function activeRate(){
+  const a = otRates.find(r=>r.active);
+  return a ? Number(a.rate) : (otRates[0] ? Number(otRates[0].rate) : 0);
+}
+
+function renderRates(){
+  const el = document.getElementById('rate-list');
+  if(otRates.length===0){
+    el.innerHTML = `<p style="font-size:13px;color:var(--ink-soft);">No rates added yet.</p>`;
+    return;
+  }
+  el.innerHTML = otRates.map((r,i)=>`
+    <div class="settings-item">
+      <label style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500;color:var(--ink);text-transform:none;margin:0;">
+        <input type="radio" name="active-rate" ${r.active?'checked':''} onchange="setActiveRate(${i})" style="width:auto;">
+        ${escapeHtml(r.label)} — <span class="mono">Rs. ${Number(r.rate).toFixed(2)}/hr</span>
+      </label>
+      <button class="icon-btn" onclick="removeRate(${i})" title="Remove">✕</button>
+    </div>`).join('');
+}
+async function setActiveRate(i){
+  otRates.forEach((r,idx)=> r.active = (idx===i));
+  await saveRates();
+  renderRates();
+  renderSummary();
+}
+async function removeRate(i){
+  const wasActive = otRates[i].active;
+  otRates.splice(i,1);
+  if(wasActive && otRates.length) otRates[0].active = true;
+  await saveRates();
+  renderRates();
+  renderSummary();
+}
+document.getElementById('btn-add-rate').addEventListener('click', async ()=>{
+  const label = document.getElementById('new-rate-label').value.trim();
+  const rate = Number(document.getElementById('new-rate-value').value);
+  if(!label || !rate){ toast('Enter a label and rate'); return; }
+  otRates.push({ label, rate, active: otRates.length===0 });
+  await saveRates();
+  document.getElementById('new-rate-label').value='';
+  document.getElementById('new-rate-value').value='';
+  renderRates();
+  renderSummary();
+  toast('Rate added');
+});
+
+function renderProfileMode(){
+  const hasData = !!(profile.name || profile.id || profile.grade || profile.salary);
+  const editFields = document.getElementById('profile-edit-fields');
+  const editBtn = document.getElementById('btn-edit-profile');
+  const viewEl = document.getElementById('profile-view');
+
+  if(hasData){
+    editFields.style.display = 'none';
+    editBtn.style.display = 'inline-block';
+    viewEl.style.display = 'block';
+    const rows = [
+      ['Name', profile.name],
+      ['Salary Number', profile.id],
+      ['Grade', profile.grade],
+      ['Working unit', profile.unit],
+      ['Monthly salary', profile.salary ? 'Rs. ' + Number(profile.salary).toFixed(2) : ''],
+      ['Leave-details note', profile.leaveNote]
+    ];
+    viewEl.innerHTML = rows.map(([lbl,val])=>`
+      <div class="profile-view-row"><span class="lbl">${lbl}</span><span class="val">${escapeHtml(val||'—')}</span></div>
+    `).join('');
+  } else {
+    editFields.style.display = 'block';
+    editBtn.style.display = 'none';
+    viewEl.style.display = 'none';
+    viewEl.innerHTML = '';
+  }
+}
+
+document.getElementById('btn-edit-profile').addEventListener('click', ()=>{
+  document.getElementById('profile-edit-fields').style.display = 'block';
+  document.getElementById('btn-edit-profile').style.display = 'none';
+  document.getElementById('profile-view').style.display = 'none';
+});
+
+document.getElementById('btn-save-profile').addEventListener('click', async ()=>{
+  try{
+    profile.name = document.getElementById('profile-name').value.trim();
+    profile.id = document.getElementById('profile-id').value.trim();
+    profile.grade = document.getElementById('profile-grade').value;
+    profile.unit = document.getElementById('profile-unit').value.trim();
+    profile.salary = document.getElementById('profile-salary').value;
+    profile.leaveNote = document.getElementById('profile-leave-note').value.trim();
+    await saveProfile();
+    renderProfileMode();
+    renderSummary();
+    toast('Details saved');
+  }catch(err){
+    console.error(err);
+    toast('Could not save — please try again');
+  }
+});
+
+// ---- time math ----
+function computeWorkedHours(start, end, breakMins){
+  const [sh,sm] = start.split(':').map(Number);
+  const [eh,em] = end.split(':').map(Number);
+  let startMin = sh*60+sm, endMin = eh*60+em;
+  let diff = endMin - startMin;
+  if(diff <= 0) diff += 24*60;
+  diff -= (Number(breakMins)||0);
+  return Math.max(0, diff/60);
+}
+function standardHoursFor(typeName){
+  const t = shiftTypes.find(t=>t.name===typeName);
+  return t ? Number(t.hours) : 8;
+}
+
+// On a normal working day, a day-off duty, or a worked public holiday: hours up to the shift's
+// standard hours are Regular, anything beyond is OT.
+// (You can always override the OT figure by hand if your workplace calculates it differently.)
+function calcRegOt(worked, std, dayType){
+  if(dayType === 'normal' || dayType === 'dayoff' || dayType === 'holiday'){
+    return { reg: Math.min(worked, std), ot: Math.max(0, worked-std) };
+  }
+  return { reg: 0, ot: worked };
+}
+
+// ---- form preview ----
+function updatePreview(){
+  const start = document.getElementById('f-start').value;
+  const end = document.getElementById('f-end').value;
+  const type = document.getElementById('f-type').value;
+  const dayType = document.getElementById('f-daytype').value;
+  if(!start || !end){
+    document.getElementById('prev-reg').textContent = '0.0 hrs';
+    document.getElementById('prev-ot').textContent = '0.0 hrs';
+    return;
+  }
+  const worked = computeWorkedHours(start,end,0);
+  const std = standardHoursFor(type);
+  const {reg, ot} = calcRegOt(worked, std, dayType);
+  document.getElementById('prev-reg').textContent = reg.toFixed(1) + ' hrs';
+  document.getElementById('prev-ot').textContent = ot.toFixed(1) + ' hrs';
+  document.getElementById('f-ot-override').value = ot.toFixed(1);
+}
+
+['f-start','f-end','f-type','f-daytype'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', updatePreview);
+  document.getElementById(id).addEventListener('change', updatePreview);
+});
+
+function autofillTypeTimes(){
+  const t = shiftTypes.find(t=>t.name === document.getElementById('f-type').value);
+  if(t && t.start && t.end){
+    document.getElementById('f-start').value = t.start;
+    document.getElementById('f-end').value = t.end;
+    updatePreview();
+  }
+}
+document.getElementById('f-type').addEventListener('change', autofillTypeTimes);
+
+function toggleLeaveMode(){
+  const val = document.getElementById('f-daytype').value;
+  const isLeave = val === 'leave' || val === 'duty-leave' || val === 'holiday-none';
+  const isNoDuty = val === 'dayoff-none';
+  document.getElementById('duty-fields').style.display = (isLeave || isNoDuty) ? 'none' : 'block';
+  document.getElementById('leave-fields').style.display = isLeave ? 'block' : 'none';
+  document.getElementById('noduty-note').style.display = isNoDuty ? 'block' : 'none';
+}
+document.getElementById('f-daytype').addEventListener('change', toggleLeaveMode);
+
+function renderTypeOptions(){
+  const sel = document.getElementById('f-type');
+  sel.innerHTML = shiftTypes.map(t=>`<option value="${t.name}">${t.name} (${t.hours} hrs std)</option>`).join('');
+}
+function renderWardOptions(){
+  document.getElementById('ward-list').innerHTML = wards.map(w=>`<option value="${w}">`).join('');
+}
+function renderOfficerOptions(){
+  document.getElementById('officer-list').innerHTML = officerTemplates.map(w=>`<option value="${w}">`).join('');
+}
+
+// ---- save shift ----
+document.getElementById('btn-save').addEventListener('click', async ()=>{
+ try {
+  const date = document.getElementById('f-date').value;
+  const dayType = document.getElementById('f-daytype').value;
+
+  if(!date){
+    toast('Please select a date');
+    return;
+  }
+
+  let record;
+  if(dayType === 'leave' || dayType === 'duty-leave' || dayType === 'holiday-none'){
+    const leaveHours = Number(document.getElementById('f-leave-hours').value) || 6;
+    const leaveTypeName = dayType === 'duty-leave' ? 'Duty Leave' : dayType === 'holiday-none' ? 'Public Holiday (No Duty)' : 'Casual Leave';
+    record = { id: editingId || uid(), date, type: leaveTypeName, start:'', end:'', ward:'', officer:'', dayType, regular:leaveHours, ot:0 };
+  } else if(dayType === 'dayoff-none'){
+    record = { id: editingId || uid(), date, type: 'Day Off (No Duty)', start:'', end:'', ward:'', officer:'', dayType, regular:0, ot:0 };
+  } else {
+    const type = document.getElementById('f-type').value;
+    const start = document.getElementById('f-start').value;
+    const end = document.getElementById('f-end').value;
+    const ward = document.getElementById('f-ward').value.trim();
+    const officer = document.getElementById('f-officer').value.trim();
+    const otOverride = document.getElementById('f-ot-override').value;
+
+    if(!type || !start || !end){
+      toast('Please fill in shift type and time');
+      return;
+    }
+    const worked = computeWorkedHours(start,end,0);
+    const std = standardHoursFor(type);
+    const auto = calcRegOt(worked, std, dayType);
+    const reg = auto.reg;
+    const ot = otOverride !== '' ? Number(otOverride) : auto.ot;
+
+    record = { id: editingId || uid(), date, type, start, end, ward, officer, dayType, regular: reg, ot: ot };
+
+    if(ward && !wards.includes(ward)){
+      wards.push(ward);
+      await saveWards();
+      renderWardOptions();
+      renderWardTags();
+    }
+  }
+
+  if(editingId){
+    const idx = shifts.findIndex(s=>s.id===editingId);
+    if(idx>-1) shifts[idx] = record;
+  } else {
+    shifts.push(record);
+  }
+  await saveShifts();
+
+  resetForm();
+  renderHistory();
+  renderSummary();
+  toast(editingId ? 'Shift updated' : 'Shift saved');
+  editingId = null;
+ } catch(err){
+  console.error('Save failed:', err);
+  toast('Save failed — please try again');
+ }
+});
+
+function resetForm(){
+  document.getElementById('f-date').value = '';
+  document.getElementById('f-start').value = '';
+  document.getElementById('f-end').value = '';
+  document.getElementById('f-ward').value = 'Cath Lab';
+  document.getElementById('f-officer').value = '';
+  document.getElementById('f-daytype').value = 'normal';
+  document.getElementById('f-ot-override').value = '';
+  document.getElementById('prev-reg').textContent = '0.0 hrs';
+  document.getElementById('prev-ot').textContent = '0.0 hrs';
+  document.getElementById('form-title').textContent = 'Log a shift';
+  document.getElementById('btn-cancel-edit').style.display = 'none';
+  editingId = null;
+  toggleLeaveMode();
+}
+document.getElementById('btn-cancel-edit').addEventListener('click', resetForm);
+
+function editShift(id){
+  const s = shifts.find(s=>s.id===id);
+  if(!s) return;
+  editingId = id;
+  document.getElementById('f-date').value = s.date;
+  document.getElementById('f-type').value = s.type;
+  document.getElementById('f-start').value = s.start;
+  document.getElementById('f-end').value = s.end;
+  document.getElementById('f-ward').value = s.ward || '';
+  document.getElementById('f-officer').value = s.officer || '';
+  document.getElementById('f-daytype').value = s.dayType || 'normal';
+  document.getElementById('f-ot-override').value = s.ot;
+  if(s.dayType === 'leave' || s.dayType === 'duty-leave' || s.dayType === 'holiday-none'){
+    document.getElementById('f-leave-hours').value = Number(s.regular) === 8 ? '8' : '6';
+  }
+  document.getElementById('prev-reg').textContent = Number(s.regular).toFixed(1) + ' hrs';
+  document.getElementById('form-title').textContent = 'Edit shift';
+  document.getElementById('btn-cancel-edit').style.display = 'inline-block';
+  toggleLeaveMode();
+  switchView('log');
+  window.scrollTo(0,0);
+}
+
+async function deleteShift(id){
+  shifts = shifts.filter(s=>s.id!==id);
+  await saveShifts();
+  renderHistory();
+  renderSummary();
+  toast('Shift deleted');
+}
+
+function monthKey(dateStr){ return dateStr.slice(0,7); }
+function monthLabel(key){
+  const [y,m] = key.split('-');
+  const d = new Date(Number(y), Number(m)-1, 1);
+  return d.toLocaleDateString(undefined, {month:'long', year:'numeric'});
+}
+
+function renderHistory(){
+  const el = document.getElementById('history-list');
+  if(shifts.length===0){
+    el.innerHTML = `<div class="empty"><span class="big">🗒️</span>No shifts logged yet.<br>Add your first one from the Log tab.</div>`;
+    return;
+  }
+  const sorted = [...shifts].sort((a,b)=> b.date.localeCompare(a.date));
+  const groups = {};
+  sorted.forEach(s=>{
+    const k = monthKey(s.date);
+    if(!groups[k]) groups[k]=[];
+    groups[k].push(s);
+  });
+  let html = '';
+  Object.keys(groups).forEach(k=>{
+    html += `<div class="month-header">${monthLabel(k)}</div>`;
+    groups[k].forEach(s=>{
+      const day = s.date.slice(8,10);
+      const isLeave = s.dayType === 'leave' || s.dayType === 'duty-leave' || s.dayType === 'holiday-none';
+      const isNoDuty = s.dayType === 'dayoff-none';
+      const noFields = isLeave || isNoDuty;
+      const badgeMap = { holiday:'Holiday', dayoff:'Day off' };
+      html += `
+        <div class="entry">
+          <div class="entry-date">${day}</div>
+          <div class="entry-main">
+            <div class="entry-type">${escapeHtml(s.type)}${!noFields && s.dayType && s.dayType!=='normal' && badgeMap[s.dayType] ? ` <span style="color:var(--ot);font-size:11px;font-weight:700;text-transform:uppercase;">· ${badgeMap[s.dayType]}</span>` : ''}</div>
+            <div class="entry-sub">${isLeave ? 'Hours credited' : isNoDuty ? 'No hours' : escapeHtml(s.start)+'–'+escapeHtml(s.end)+(s.ward? ' · '+escapeHtml(s.ward):'')}</div>
+          </div>
+          <div class="entry-hours">
+            ${isNoDuty ? '—' : isLeave ? Number(s.regular).toFixed(1)+'hrs' : Number(s.regular).toFixed(1)+'hrs'+(Number(s.ot)>0 ? ` <span class="ot-val">+${Number(s.ot).toFixed(1)}hrs OT</span>`:'')}
+          </div>
+          <div class="entry-actions">
+            <button class="icon-btn" onclick="editShift('${s.id}')" title="Edit">✎</button>
+            <button class="icon-btn" onclick="deleteShift('${s.id}')" title="Delete">✕</button>
+          </div>
+        </div>`;
+    });
+  });
+  el.innerHTML = html;
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str||'';
+  return d.innerHTML;
+}
+
+// ---- summary ----
+const WEEKLY_REQUIRED_HOURS = 36;
+
+// Shared rule: group by Sunday-starting week, sum (regular+OT) per week, subtract 36, floor at 0.
+// Used identically here and in the downloadable OT sheet so the two totals always agree.
+function computeWeeklyOtHours(shiftList){
+  const weekGroups = {};
+  shiftList.forEach(s=>{
+    const wkKey = nearestSunday(s.date);
+    weekGroups[wkKey] = (weekGroups[wkKey] || 0) + Number(s.regular) + Number(s.ot);
+  });
+  let total = 0;
+  Object.values(weekGroups).forEach(weekTotal=>{
+    total += Math.max(0, weekTotal - WEEKLY_REQUIRED_HOURS);
+  });
+  return total;
+}
+
+function renderSummary(){
+  let rawStart = document.getElementById('f-period-start').value || todayLocalISO();
+  const numWeeks = Number(document.getElementById('f-period-weeks').value) || 4;
+  const periodStart = nearestSunday(rawStart);
+  document.getElementById('f-period-start').value = periodStart; // reflect the auto-snapped Sunday
+  const periodEnd = addDays(periodStart, numWeeks*7 - 1);
+
+  const filtered = shifts.filter(s => s.date >= periodStart && s.date <= periodEnd)
+                          .sort((a,b)=>a.date.localeCompare(b.date));
+
+  document.getElementById('summary-month-title').textContent = `${fmtDMY(periodStart)} – ${fmtDMY(periodEnd)}`;
+  const headerBits = [];
+  if(profile.name) headerBits.push(profile.name);
+  if(profile.id) headerBits.push('Salary No: ' + profile.id);
+  document.getElementById('report-header').textContent = headerBits.join(' · ');
+  document.getElementById('sum-days').textContent = filtered.length;
+  const totalReg = filtered.reduce((sum,s)=>sum+Number(s.regular),0);
+  const totalOt = computeWeeklyOtHours(filtered);
+  document.getElementById('sum-reg').textContent = totalReg.toFixed(1) + ' hrs';
+  document.getElementById('sum-ot').textContent = totalOt.toFixed(1) + ' hrs';
+  const rate = activeRate();
+  const activeLabel = (otRates.find(r=>r.active)||{}).label || '';
+  document.getElementById('sum-amount').textContent = 'Rs. ' + (totalOt*rate).toFixed(2);
+  document.getElementById('sum-rate-label').textContent = `OT claim amount${activeLabel ? ' · '+activeLabel+' (Rs.'+rate.toFixed(2)+'/hr)' : ''}`;
+
+  const tbody = document.getElementById('summary-tbody');
+  if(filtered.length===0){
+    tbody.innerHTML = `<tr><td colspan="5" style="color:var(--ink-soft);text-align:center;padding:20px 0;">No shifts logged for this period.</td></tr>`;
+  } else {
+    tbody.innerHTML = filtered.map(s=>`
+      <tr>
+        <td class="mono">${s.date.slice(8,10)}/${s.date.slice(5,7)}</td>
+        <td>${escapeHtml(s.type)}</td>
+        <td>${escapeHtml(s.ward||'—')}</td>
+        <td class="num">${Number(s.regular).toFixed(1)} hrs</td>
+        <td class="num">${Number(s.ot).toFixed(1)} hrs</td>
+      </tr>`).join('');
+  }
+}
+document.getElementById('f-period-start').addEventListener('change', renderSummary);
+document.getElementById('f-period-weeks').addEventListener('change', renderSummary);
+document.getElementById('btn-print').addEventListener('click', downloadReport);
+
+function addDays(dateStr, n){
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate()+n);
+  return dateToLocalISO(d);
+}
+function fmtDMY(dateStr){
+  return `${dateStr.slice(8,10)}/${dateStr.slice(5,7)}/${dateStr.slice(0,4)}`;
+}
+function fmtTimeH(t){
+  return t.replace(':','') + 'h';
+}
+function addHoursToTime(timeStr, hours){
+  const [h,m] = timeStr.split(':').map(Number);
+  let totalMin = h*60 + m + Math.round(hours*60);
+  totalMin = ((totalMin % 1440) + 1440) % 1440;
+  const hh = Math.floor(totalMin/60), mm = totalMin%60;
+  return String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
+}
+function majorityMonth(periodStart, periodEnd){
+  const counts = {};
+  for(let i=0; i<=34; i++){
+    const d = addDays(periodStart, i);
+    if(d > periodEnd) break;
+    const mk = monthKey(d);
+    counts[mk] = (counts[mk]||0) + 1;
+  }
+  let bestKey = monthKey(periodStart), bestCount = -1;
+  Object.keys(counts).forEach(k=>{
+    if(counts[k] > bestCount){ bestCount = counts[k]; bestKey = k; }
+  });
+  return bestKey;
+}
+
+function nearestSunday(dateStr){
+  const d = new Date(dateStr + 'T00:00:00');
+  const dow = d.getDay(); // 0 = Sunday
+  d.setDate(d.getDate() - dow);
+  return dateToLocalISO(d);
+}
+const ORDINALS = ['1st','2nd','3rd','4th','5th'];
+
+function downloadReport(){
+  const btn = document.getElementById('btn-print');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+  try{
+    let rawStart = document.getElementById('f-period-start').value;
+    if(!rawStart){
+      rawStart = todayLocalISO();
+    }
+    const numWeeks = Number(document.getElementById('f-period-weeks').value) || 4;
+    const periodStart = nearestSunday(rawStart); // always the Sunday on/before the chosen date
+    const periodEnd = addDays(periodStart, numWeeks*7 - 1); // ends on a Saturday
+
+    const inRange = shifts.filter(s => s.date >= periodStart && s.date <= periodEnd)
+                           .sort((a,b)=>a.date.localeCompare(b.date));
+
+    const weekLabels = ORDINALS.slice(0, numWeeks).map(o => o + ' week');
+    const weeks = Array.from({length:numWeeks}, ()=>[]);
+    inRange.forEach(s=>{
+      const dayIdx = Math.floor((new Date(s.date+'T00:00:00') - new Date(periodStart+'T00:00:00')) / 86400000);
+      const wk = Math.min(numWeeks-1, Math.max(0, Math.floor(dayIdx/7)));
+      weeks[wk].push(s);
+    });
+
+    let totalOt = 0;
+    const rowsHtml = weekLabels.map((label, wi)=>{
+      const entries = weeks[wi];
+      if(entries.length === 0){
+        return `<tr><td class="wk">${label}</td><td></td><td></td><td></td><td></td><td></td></tr>`;
+      }
+      // Weekly rule: (regular + OT hours for every day that week) - 36 = OT hours for that week.
+      // That single figure is written once, on the week's last row.
+      const weekTotalHours = entries.reduce((sum,s)=> sum + Number(s.regular) + Number(s.ot), 0);
+      const weeklyOt = Math.max(0, weekTotalHours - WEEKLY_REQUIRED_HOURS);
+      totalOt += weeklyOt;
+
+      return entries.map((s, i)=>{
+        const regHrs = Number(s.regular);
+        const otHrs = Number(s.ot);
+        let regLabel = '';
+        let otLabel = '';
+        if(s.dayType === 'leave' || s.dayType === 'duty-leave' || s.dayType === 'holiday-none'){
+          const label = s.dayType==='duty-leave' ? 'Duty Leave' : s.dayType==='holiday-none' ? 'Public Holiday' : 'Casual Leave';
+          regLabel = `${label} = ${regHrs.toFixed(1)}hrs`;
+        } else if(s.dayType === 'dayoff-none'){
+          regLabel = `Day Off`;
+        } else {
+          const tagSuffix = s.dayType === 'dayoff' ? ' (DO)' : s.dayType === 'holiday' ? ' (PH)' : '';
+          if(regHrs > 0){
+            const regEnd = addHoursToTime(s.start, regHrs);
+            regLabel = `${fmtTimeH(s.start)}-${fmtTimeH(regEnd)}=${regHrs.toFixed(1)}hrs${tagSuffix}`;
+          }
+          if(otHrs > 0){
+            const otStart = regHrs > 0 ? addHoursToTime(s.start, regHrs) : s.start;
+            otLabel = `${fmtTimeH(otStart)}-${fmtTimeH(s.end)}=${otHrs.toFixed(1)}hrs${tagSuffix}`;
+          }
+        }
+        const isLastRow = (i === entries.length - 1);
+        return `<tr>
+          <td class="wk">${i===0 ? label : ''}</td>
+          <td>${fmtDMY(s.date)}</td>
+          <td class="shift-time">${regLabel}</td>
+          <td class="shift-time">${otLabel}</td>
+          <td>${escapeHtml(s.officer||'')}</td>
+          <td>${isLastRow ? weeklyOt.toFixed(1)+' hrs' : ''}</td>
+        </tr>`;
+      }).join('');
+    }).join('');
+
+    const rate = activeRate();
+    const activeLabel = (otRates.find(r=>r.active)||{}).label || '';
+    const amount = totalOt*rate;
+    const salaryDisplay = profile.salary ? Number(profile.salary).toFixed(2) : '';
+    const leaveNote = profile.leaveNote || 'Please turn over';
+
+    const coverHtml = `
+      <div class="cover-page">
+        <div class="topright">
+          <p>මාගේ අංකය :- ${escapeHtml(profile.id||'')}</p>
+          <p>මාසය :- ${monthLabel(majorityMonth(periodStart, periodEnd))}</p>
+        </div>
+        <h1 class="formtitle">අමතර සේවා සඳහා ඉල්ලීම - හෙද කාර්‍ය මණ්ඩලය</h1>
+        <div class="fields">
+          <p class="formline">01&nbsp;&nbsp;හෙද නිලධාරියාගේ / නිලධාරිනියගේ නම :- ${escapeHtml(profile.name||'')}</p>
+          <p class="formline">02&nbsp;&nbsp;ශ්‍රේණිය :- ${escapeHtml(profile.grade||'')}</p>
+          <p class="formline">03&nbsp;&nbsp;ආයතනය :- දකුණු කොළඹ ශික්ෂණ රෝහල කළුබෝවිල</p>
+          <p class="formline">04&nbsp;&nbsp;${fmtDMY(periodStart)} දිනෙන් පටන්ගෙන ${fmtDMY(periodEnd)} දිනෙන් අවසන් වන සති ${numWeeks===5?'පහක':'හතරක'} කාලය තුල මුදල් ඉල්ලීම.</p>
+          <p class="formline">05&nbsp;&nbsp;පැය ගණන :- ${totalOt.toFixed(1)} hrs</p>
+          <p class="formline">06&nbsp;&nbsp;මාසික වැටුප :- ${salaryDisplay ? 'Rs. '+salaryDisplay : ''}</p>
+          <p class="formline">07&nbsp;&nbsp;පැයක අතිකාල ප්‍රමාණය :- Rs. ${rate.toFixed(2)}</p>
+          <p class="formline">08&nbsp;&nbsp;ඉල්ලුම් කරන මුදල :- Rs. ${amount.toFixed(2)}</p>
+          <p class="formline">09&nbsp;&nbsp;වැඩ කරන ස්ථානය :- ${escapeHtml(profile.unit||'')}</p>
+          <p class="formline">10&nbsp;&nbsp;අදාළ කාලය තුල ලබාගත් නිවාඩු පිළිබඳ විස්තරය :- ${escapeHtml(leaveNote)}</p>
+        </div>
+        <div class="declblock">
+          <p class="declare">ඉහත දක්වා ඇති රාජකාරී පැය ගණන, ඉල්ලුම් කරන මුදල, නිවාඩු විස්තර නිවැරදි බව මම සහතික කරමි. මට ගෙවීම් කිරීමෙන් පසු කිසියම් වරදක් හෝ අක්‍රමිකතාවයක් සොයාගත හොත් එම මුදල අධිභාරය කිරීමට හා මට විරුද්ධව විනයානුකූලව ක්‍රියා කිරීමට හැකි බව දනිමි.</p>
+          <div class="sigrow"><span>දිනය :- ....................................................</span><span>අත්සන :- ....................................................</span></div>
+        </div>
+        <div class="declblock">
+          <p class="declare">ඉහත දක්වා ඇති පැය ගණන ${fmtDMY(periodStart)} දින පටන්ගන්නා සතියේ සිට ${fmtDMY(periodEnd)} දින අවසන් වන සතිය දක්වා වැඩ කරන ලද අමතර පැය ගණන බව සහතික කරමි. ඔහුගේ / ඇයගේ පැමිණීම සහ පිටවී යෑම පරීක්ෂා කර බලා නිවැරදි බව සහතික කරමි.</p>
+          <div class="sigrow"><span>දිනය :- ....................................................</span><span>හෙද පාලිකාවගේ අත්සන :- ....................................................</span></div>
+        </div>
+        <div class="declblock">
+          <p class="declare">රෝගී සත්කාර සේවයේ අවශ්‍යතාවය නිසා අමතර සේවා රාජකාරි පැය ගණන් ඉටු කිරීමට මෙම උප ලේඛනයේ දක්වා ඇති නිලධාරියාට / නිලධාරිනියට මා විසින් බලය පවරන ලද බව සහතික කරමි. ඔවුන් විසින් ඉටුකරන ලද අමතර සේවා රාජකාරි පැය ගණන් ගෙවීමේදී ඔවුන් විසින් ලබාගන්නා ලද අනුමත නිවාඩු සැලකිල්ලට ගන්නා බවත් තවදුරටත් සහතික කරමි.</p>
+          <div class="sigrow"><span>දිනය :- ....................................................</span><span>....................................................</span></div>
+        </div>
+      </div>
+      <div class="page-break"></div>`;
+
+    const doc = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+      <title>OT Application ${periodStart} to ${periodEnd}</title>
+      <style>
+        @page{ size: A4; margin: 18mm; }
+        body{font-family:'Noto Sans Sinhala','Iskoola Pota',Arial,sans-serif;color:#1E2A32;padding:20px;max-width:900px;margin:0 auto;font-size:12px;}
+        h1{font-size:17px;margin-bottom:2px;}
+        .sub{color:#55666B;font-size:12px;margin-bottom:16px;}
+        table{width:100%;border-collapse:collapse;font-size:10.5px;line-height:1.3;}
+        th,td{border:1px solid #888;padding:4px 6px;text-align:left;vertical-align:top;}
+        th{background:#f0f0f0;font-size:10px;}
+        td.wk{font-weight:bold;white-space:nowrap;}
+        td.shift-time{white-space:nowrap;font-family:'JetBrains Mono',monospace;font-size:10.5px;}
+        tr{page-break-inside:avoid;}
+        table{page-break-inside:auto;}
+        .total-box-row{page-break-inside:avoid;}
+        .total-row td{font-weight:bold;border-top:2px solid #444;}
+        .total-box-row{display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-top:8px;font-size:12px;}
+        .sheet-page{display:flex;flex-direction:column;justify-content:space-between;min-height:250mm;}
+        .total-box{border:1px solid #444;padding:8px 20px;min-width:110px;text-align:center;font-weight:bold;}
+        .print-hint{background:#eef;padding:10px;border-radius:6px;font-size:12px;margin-bottom:14px;}
+        .amount-note{margin-top:16px;font-size:12px;}
+        .cover-page{display:flex;flex-direction:column;justify-content:space-between;min-height:250mm;font-size:12px;}
+        .topright{align-self:flex-end;text-align:right;}
+        .topright p{margin:2px 0;font-size:12px;}
+        .formtitle{font-size:15px;text-align:center;margin:6px 0 4px;text-decoration:underline;}
+        .fields{display:flex;flex-direction:column;gap:9px;}
+        .formline{font-size:12px;margin:0;line-height:1.5;}
+        .declblock{display:flex;flex-direction:column;gap:14px;}
+        .declare{font-size:12px;line-height:1.7;text-align:justify;margin:0;}
+        .sigrow{display:flex;justify-content:space-between;font-size:12px;}
+        .page-break{page-break-after:always;}
+        @media print{ .print-hint{display:none;} }
+      </style></head><body>
+      <p class="print-hint">Tip: this file has exactly 2 pages — the application (front) and the weekly sheet (back). Open it, then use your browser's <strong>Print</strong> option. If printing directly: turn on <strong>"Print on both sides" / "Duplex"</strong> in the print settings so it comes out on one A4 sheet, front and back. If saving as PDF first: open the PDF and print it with duplex turned on the same way.</p>
+      ${coverHtml}
+      <div class="sheet-page">
+        <table>
+          <thead><tr>
+            <th>සතිය</th>
+            <th>දිනය</th>
+            <th>සේවා මුර හා එක් එක්දින පැය ගණන</th>
+            <th>අමතර සේවා කල පැය ගණන</th>
+            <th>සේවා ගන්නා නිලධාරියාගේ නම</th>
+            <th>අමතර පැය ගණන</th>
+          </tr></thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+        <div class="total-box-row">
+          <span>මුළු පැය ගණන =</span>
+          <span class="total-box">${totalOt.toFixed(1)} hrs</span>
+        </div>
+      </div>
+      </body></html>`;
+
+    const blob = new Blob([doc], {type:'text/html'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `OT_Sheet_${periodStart}_to_${periodEnd}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 5000);
+    toast('OT sheet downloaded — open it to print or share');
+  }catch(err){
+    console.error('Report generation failed:', err);
+    toast('Could not generate report — please try again');
+  }finally{
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
+
+// ---- settings: shift types ----
+function renderTypeSettings(){
+  const el = document.getElementById('type-list');
+  el.innerHTML = shiftTypes.map((t,i)=>`
+    <div class="settings-item">
+      <span>${escapeHtml(t.name)} — <span class="mono">${t.start&&t.end ? fmtTimeH(t.start)+'-'+fmtTimeH(t.end)+', ' : ''}${t.hours} hrs</span> standard</span>
+      <button class="icon-btn" onclick="removeType(${i})" title="Remove">✕</button>
+    </div>`).join('');
+}
+async function removeType(i){
+  shiftTypes.splice(i,1);
+  await saveTypes();
+  renderTypeSettings();
+  renderTypeOptions();
+}
+document.getElementById('btn-add-type').addEventListener('click', async ()=>{
+  const name = document.getElementById('new-type-name').value.trim();
+  const start = document.getElementById('new-type-start').value;
+  const end = document.getElementById('new-type-end').value;
+  const hours = Number(document.getElementById('new-type-hours').value);
+  if(!name || !hours){ toast('Enter a name and standard hours'); return; }
+  shiftTypes.push({name, hours, start, end});
+  await saveTypes();
+  document.getElementById('new-type-name').value='';
+  document.getElementById('new-type-start').value='';
+  document.getElementById('new-type-end').value='';
+  document.getElementById('new-type-hours').value='';
+  renderTypeSettings();
+  renderTypeOptions();
+  toast('Shift type added');
+});
+
+// ---- settings: wards ----
+function renderWardTags(){
+  const el = document.getElementById('ward-tags');
+  el.innerHTML = wards.map((w,i)=>`<span class="tag">${escapeHtml(w)}<button onclick="removeWard(${i})">✕</button></span>`).join('');
+}
+async function removeWard(i){
+  wards.splice(i,1);
+  await saveWards();
+  renderWardTags();
+  renderWardOptions();
+}
+document.getElementById('btn-add-ward').addEventListener('click', async ()=>{
+  const w = document.getElementById('new-ward').value.trim();
+  if(!w) return;
+  if(!wards.includes(w)) wards.push(w);
+  await saveWards();
+  document.getElementById('new-ward').value='';
+  renderWardTags();
+  renderWardOptions();
+});
+
+// ---- settings: officer/reason templates ----
+function renderOfficerTags(){
+  const el = document.getElementById('officer-tags');
+  el.innerHTML = officerTemplates.map((w,i)=>`<span class="tag">${escapeHtml(w)}<button onclick="removeOfficerTpl(${i})">✕</button></span>`).join('');
+}
+async function removeOfficerTpl(i){
+  officerTemplates.splice(i,1);
+  await saveOfficerTemplates();
+  renderOfficerTags();
+  renderOfficerOptions();
+}
+document.getElementById('btn-add-officer-tpl').addEventListener('click', async ()=>{
+  const w = document.getElementById('new-officer-tpl').value.trim();
+  if(!w) return;
+  if(!officerTemplates.includes(w)) officerTemplates.push(w);
+  await saveOfficerTemplates();
+  document.getElementById('new-officer-tpl').value='';
+  renderOfficerTags();
+  renderOfficerOptions();
+});
+
+document.getElementById('btn-reset').addEventListener('click', async ()=>{
+  if(!confirm('This will permanently delete all your logged shifts. Continue?')) return;
+  shifts = [];
+  shiftTypes = DEFAULT_TYPES.slice();
+  wards = DEFAULT_WARDS.slice();
+  officerTemplates = DEFAULT_OFFICER_TEMPLATES.slice();
+  await saveShifts(); await saveTypes(); await saveWards(); await saveOfficerTemplates();
+  renderTypeOptions(); renderWardOptions(); renderTypeSettings(); renderWardTags();
+  renderOfficerOptions(); renderOfficerTags();
+  renderHistory(); renderSummary();
+  toast('All data cleared');
+});
+
+// ---- tabs ----
+function switchView(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector(`.tab-btn[data-view="${name}"]`).classList.add('active');
+  if(name==='summary') renderSummary();
+}
+document.querySelectorAll('.tab-btn').forEach(b=>{
+  b.addEventListener('click', ()=>switchView(b.dataset.view));
+});
+
+// default date = today
+document.getElementById('f-date').value = todayLocalISO();
+document.getElementById('f-ward').value = 'Cath Lab';
+{
+  const now = new Date();
+  const firstOfMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+  document.getElementById('f-period-start').value = nearestSunday(firstOfMonth);
+}
+
+loadAll();
+
+// Register service worker for offline support when this file is hosted online.
+// Silently does nothing if unsupported (e.g. opened directly as a local file, or inside Claude's preview).
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
