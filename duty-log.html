@@ -222,8 +222,11 @@
           <option value="dayoff-none">Day off (no duty)</option>
           <option value="holiday">Public holiday (worked)</option>
           <option value="holiday-none">Public holiday (no duty)</option>
+          <option value="sleeping-day">Sleeping day (worked — all hours OT)</option>
+          <option value="sleeping-day-none">Sleeping day (no duty)</option>
           <option value="leave">Casual leave (no duty)</option>
           <option value="duty-leave">Duty leave (no duty)</option>
+          <option value="medical-leave">Medical leave (no duty)</option>
         </select>
       </div>
 
@@ -706,15 +709,41 @@ function standardHoursFor(typeName){
   const t = shiftTypes.find(t=>t.name===typeName);
   return t ? Number(t.hours) : 8;
 }
+function standardWindowFor(typeName){
+  const t = shiftTypes.find(t=>t.name===typeName);
+  return t ? { start: t.start, end: t.end } : { start:'', end:'' };
+}
 
-// On a normal working day, a day-off duty, or a worked public holiday: hours up to the shift's
-// standard hours are Regular, anything beyond is OT.
-// (You can always override the OT figure by hand if your workplace calculates it differently.)
-function calcRegOt(worked, std, dayType){
-  if(dayType === 'normal' || dayType === 'dayoff' || dayType === 'holiday'){
-    return { reg: Math.min(worked, std), ot: Math.max(0, worked-std) };
+// Splits worked time into Regular vs OT, correctly handling OT that falls BEFORE the shift's
+// normal start time, AFTER its normal end time, or both — not just after, as a simple
+// "worked minus standard" subtraction would assume.
+//
+// Example: shift type's normal window is 19:00-07:00 (12h). You log 13:00-07:00 (18h worked).
+// The 6 extra hours are BEFORE the normal 19:00 start, so: OT = 13:00-19:00 (6h), Regular = 19:00-07:00 (12h).
+function calcRegOt(enteredStart, enteredEnd, stdStart, stdEnd, stdHours, dayType){
+  const worked = computeWorkedHours(enteredStart, enteredEnd, 0);
+  if(dayType !== 'normal' && dayType !== 'dayoff' && dayType !== 'holiday'){
+    return { reg: 0, ot: worked };
   }
-  return { reg: 0, ot: worked };
+  const workedMin = worked*60;
+  const stdMin = stdHours*60;
+
+  if(!stdStart || !stdEnd){
+    // No configured standard window for this shift type — fall back to the simple rule:
+    // first `stdHours` hours from the entered start are regular, anything beyond is OT (after only).
+    return { reg: Math.min(worked, stdHours), ot: Math.max(0, worked-stdHours) };
+  }
+
+  const toMin = t => { const [h,m]=t.split(':').map(Number); return h*60+m; };
+  const S = toMin(enteredStart);
+  const ST = toMin(stdStart);
+  let stdStartOffset = ((ST - S) % 1440 + 1440) % 1440; // minutes from entered start until the standard shift begins
+  if(stdStartOffset > 720) stdStartOffset = 0; // guard: treat a "late start" as 0 pre-OT rather than a near-full-day wraparound
+
+  const preOt = Math.min(stdStartOffset, workedMin);
+  const regularMin = Math.min(stdMin, Math.max(0, workedMin - preOt));
+  const postOt = Math.max(0, workedMin - preOt - regularMin);
+  return { reg: regularMin/60, ot: (preOt+postOt)/60 };
 }
 
 // ---- form preview ----
@@ -729,8 +758,9 @@ function updatePreview(){
     return;
   }
   const worked = computeWorkedHours(start,end,0);
+  const win = standardWindowFor(type);
   const std = standardHoursFor(type);
-  const {reg, ot} = calcRegOt(worked, std, dayType);
+  const {reg, ot} = calcRegOt(start, end, win.start, win.end, std, dayType);
   document.getElementById('prev-reg').textContent = reg.toFixed(1) + ' hrs';
   document.getElementById('prev-ot').textContent = ot.toFixed(1) + ' hrs';
   document.getElementById('f-ot-override').value = ot.toFixed(1);
@@ -754,7 +784,7 @@ document.getElementById('f-type').addEventListener('change', autofillTypeTimes);
 function toggleLeaveMode(){
   const val = document.getElementById('f-daytype').value;
   const isLeave = val === 'leave' || val === 'duty-leave' || val === 'holiday-none';
-  const isNoDuty = val === 'dayoff-none';
+  const isNoDuty = val === 'dayoff-none' || val === 'sleeping-day-none' || val === 'medical-leave';
   document.getElementById('duty-fields').style.display = (isLeave || isNoDuty) ? 'none' : 'block';
   document.getElementById('leave-fields').style.display = isLeave ? 'block' : 'none';
   document.getElementById('noduty-note').style.display = isNoDuty ? 'block' : 'none';
@@ -788,8 +818,9 @@ document.getElementById('btn-save').addEventListener('click', async ()=>{
     const leaveHours = Number(document.getElementById('f-leave-hours').value) || 6;
     const leaveTypeName = dayType === 'duty-leave' ? 'Duty Leave' : dayType === 'holiday-none' ? 'Public Holiday (No Duty)' : 'Casual Leave';
     record = { id: editingId || uid(), date, type: leaveTypeName, start:'', end:'', ward:'', officer:'', dayType, regular:leaveHours, ot:0 };
-  } else if(dayType === 'dayoff-none'){
-    record = { id: editingId || uid(), date, type: 'Day Off (No Duty)', start:'', end:'', ward:'', officer:'', dayType, regular:0, ot:0 };
+  } else if(dayType === 'dayoff-none' || dayType === 'sleeping-day-none' || dayType === 'medical-leave'){
+    const zeroTypeName = dayType === 'sleeping-day-none' ? 'Sleeping Day' : dayType === 'medical-leave' ? 'Medical Leave' : 'Day Off (No Duty)';
+    record = { id: editingId || uid(), date, type: zeroTypeName, start:'', end:'', ward:'', officer:'', dayType, regular:0, ot:0 };
   } else {
     const type = document.getElementById('f-type').value;
     const start = document.getElementById('f-start').value;
@@ -803,8 +834,9 @@ document.getElementById('btn-save').addEventListener('click', async ()=>{
       return;
     }
     const worked = computeWorkedHours(start,end,0);
+    const win = standardWindowFor(type);
     const std = standardHoursFor(type);
-    const auto = calcRegOt(worked, std, dayType);
+    const auto = calcRegOt(start, end, win.start, win.end, std, dayType);
     const reg = auto.reg;
     const ot = otOverride !== '' ? Number(otOverride) : auto.ot;
 
@@ -911,9 +943,9 @@ function renderHistory(){
     groups[k].forEach(s=>{
       const day = s.date.slice(8,10);
       const isLeave = s.dayType === 'leave' || s.dayType === 'duty-leave' || s.dayType === 'holiday-none';
-      const isNoDuty = s.dayType === 'dayoff-none';
+      const isNoDuty = s.dayType === 'dayoff-none' || s.dayType === 'sleeping-day-none' || s.dayType === 'medical-leave';
       const noFields = isLeave || isNoDuty;
-      const badgeMap = { holiday:'Holiday', dayoff:'Day off' };
+      const badgeMap = { holiday:'Holiday', dayoff:'Day off', 'sleeping-day':'Sleeping Day' };
       html += `
         <div class="entry">
           <div class="entry-date">${day}</div>
@@ -1089,15 +1121,45 @@ function downloadReport(){
           regLabel = `${label} = ${regHrs.toFixed(1)}hrs`;
         } else if(s.dayType === 'dayoff-none'){
           regLabel = `Day Off`;
+        } else if(s.dayType === 'sleeping-day-none'){
+          regLabel = `SD`;
+        } else if(s.dayType === 'sleeping-day'){
+          regLabel = `SD`;
+          if(otHrs > 0){
+            otLabel = `${fmtTimeH(s.start)}-${fmtTimeH(s.end)}=${otHrs.toFixed(1)}hrs`;
+          }
+        } else if(s.dayType === 'medical-leave'){
+          regLabel = `ML`;
         } else {
           const tagSuffix = s.dayType === 'dayoff' ? ' (DO)' : s.dayType === 'holiday' ? ' (PH)' : '';
-          if(regHrs > 0){
+          // Figure out whether OT falls before or after the regular portion, using the shift
+          // type's own configured standard start time (same logic as calcRegOt).
+          let otIsBefore = false;
+          if(otHrs > 0 && regHrs > 0 && s.start && s.end){
+            const win = standardWindowFor(s.type);
+            if(win.start){
+              const toMin = t => { const [h,m]=t.split(':').map(Number); return h*60+m; };
+              const sMin = toMin(s.start), stMin = toMin(win.start);
+              let offset = ((stMin - sMin) % 1440 + 1440) % 1440;
+              if(offset > 720) offset = 0;
+              otIsBefore = offset > 0;
+            }
+          }
+          if(regHrs > 0 && otHrs > 0){
+            if(otIsBefore){
+              const otEnd = addHoursToTime(s.start, otHrs);
+              otLabel = `${fmtTimeH(s.start)}-${fmtTimeH(otEnd)}=${otHrs.toFixed(1)}hrs${tagSuffix}`;
+              regLabel = `${fmtTimeH(otEnd)}-${fmtTimeH(s.end)}=${regHrs.toFixed(1)}hrs${tagSuffix}`;
+            } else {
+              const regEnd = addHoursToTime(s.start, regHrs);
+              regLabel = `${fmtTimeH(s.start)}-${fmtTimeH(regEnd)}=${regHrs.toFixed(1)}hrs${tagSuffix}`;
+              otLabel = `${fmtTimeH(regEnd)}-${fmtTimeH(s.end)}=${otHrs.toFixed(1)}hrs${tagSuffix}`;
+            }
+          } else if(regHrs > 0){
             const regEnd = addHoursToTime(s.start, regHrs);
             regLabel = `${fmtTimeH(s.start)}-${fmtTimeH(regEnd)}=${regHrs.toFixed(1)}hrs${tagSuffix}`;
-          }
-          if(otHrs > 0){
-            const otStart = regHrs > 0 ? addHoursToTime(s.start, regHrs) : s.start;
-            otLabel = `${fmtTimeH(otStart)}-${fmtTimeH(s.end)}=${otHrs.toFixed(1)}hrs${tagSuffix}`;
+          } else if(otHrs > 0){
+            otLabel = `${fmtTimeH(s.start)}-${fmtTimeH(s.end)}=${otHrs.toFixed(1)}hrs${tagSuffix}`;
           }
         }
         const isLastRow = (i === entries.length - 1);
