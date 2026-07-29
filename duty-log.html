@@ -424,7 +424,10 @@
     </div>
     <div class="card no-print">
       <h2>Data</h2>
-      <p style="font-size:13px;color:var(--ink-soft);margin:0 0 10px;">Your entries are saved privately to your account and stay on this device/app only.</p>
+      <p style="font-size:13px;color:var(--ink-soft);margin:0 0 10px;">Your entries are saved on this device only. Clearing your browser's site data/cookies will erase them — back up regularly using the buttons below.</p>
+      <button class="btn-primary" id="btn-export-backup" style="width:100%;margin-bottom:8px;">Download backup file</button>
+      <label class="btn-ghost btn-small" for="import-backup-file" style="display:block;text-align:center;width:100%;box-sizing:border-box;margin-bottom:8px;cursor:pointer;">Restore from backup file</label>
+      <input type="file" id="import-backup-file" accept="application/json" style="display:none;">
       <button class="btn-danger-ghost" id="btn-reset" style="width:100%;">Clear all data</button>
     </div>
   </div>
@@ -1374,6 +1377,72 @@ document.getElementById('btn-reset').addEventListener('click', async ()=>{
   renderOfficerOptions(); renderOfficerTags();
   renderHistory(); renderSummary();
   toast('All data cleared');
+});
+
+// ---- backup export / restore ----
+document.getElementById('btn-export-backup').addEventListener('click', ()=>{
+  try{
+    const backup = {
+      exportedAt: new Date().toISOString(),
+      shifts, shiftTypes, wards, officerTemplates, profile, otRates
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `duty-log-backup-${todayLocalISO()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 5000);
+    toast('Backup downloaded — keep this file safe');
+  }catch(err){
+    console.error('Backup export failed:', err);
+    toast('Could not create backup — please try again');
+  }
+});
+
+document.getElementById('import-backup-file').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async (ev)=>{
+    try{
+      const data = JSON.parse(ev.target.result);
+      if(!data || !Array.isArray(data.shifts)){
+        toast('This does not look like a valid backup file');
+        return;
+      }
+      if(!confirm('This will replace all current data on this device with the backup. Continue?')) return;
+
+      shifts = data.shifts || [];
+      shiftTypes = data.shiftTypes && data.shiftTypes.length ? data.shiftTypes : DEFAULT_TYPES.slice();
+      wards = data.wards && data.wards.length ? data.wards : DEFAULT_WARDS.slice();
+      officerTemplates = data.officerTemplates && data.officerTemplates.length ? data.officerTemplates : DEFAULT_OFFICER_TEMPLATES.slice();
+      profile = data.profile || { name:'', id:'', grade:'', unit:'Cath Lab', salary:'', leaveNote:'Please turn over' };
+      otRates = data.otRates && data.otRates.length ? data.otRates : DEFAULT_RATES.slice();
+
+      await saveShifts(); await saveTypes(); await saveWards(); await saveOfficerTemplates();
+      await saveProfile(); await saveRates();
+
+      renderTypeOptions(); renderWardOptions(); renderTypeSettings(); renderWardTags();
+      renderOfficerOptions(); renderOfficerTags(); renderRates();
+      document.getElementById('profile-name').value = profile.name || '';
+      document.getElementById('profile-id').value = profile.id || '';
+      document.getElementById('profile-grade').value = profile.grade || 'Staff Nurse Grade I';
+      document.getElementById('profile-unit').value = profile.unit || 'Cath Lab';
+      document.getElementById('profile-salary').value = profile.salary || '';
+      document.getElementById('profile-leave-note').value = profile.leaveNote || 'Please turn over';
+      renderProfileMode();
+      renderHistory(); renderSummary();
+      toast('Backup restored successfully');
+    }catch(err){
+      console.error('Restore failed:', err);
+      toast('Could not read that file — is it a valid backup?');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = ''; // allow re-selecting the same file later
 });
 
 // ---- tabs ----
